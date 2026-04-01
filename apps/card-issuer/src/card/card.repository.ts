@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '../../../../generated/prisma/client';
 import { PrismaService } from '@app/shared';
 import { IssueCardDto } from './dto/issue-card.dto';
 
@@ -6,11 +7,11 @@ import { IssueCardDto } from './dto/issue-card.dto';
 export class CardRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async existsByDocumentNumber(documentNumber: string): Promise<boolean> {
-    const record = await this.prisma.cardRequest.findUnique({
-      where: { documentNumber },
-    });
-    return !!record;
+  isUniqueConstraintError(error: unknown): boolean {
+    return (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    );
   }
 
   async create(requestId: string, dto: IssueCardDto) {
@@ -26,6 +27,10 @@ export class CardRepository {
         currency: dto.product.currency,
       },
     });
+  }
+
+  async delete(requestId: string) {
+    return this.prisma.cardRequest.delete({ where: { requestId } });
   }
 
   async findByRequestId(requestId: string) {

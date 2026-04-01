@@ -10,7 +10,7 @@ import { generateCardData } from './utils/card-generator';
 import { ProcessorRepository } from './processor.repository';
 import { KafkaProducer } from '@app/shared';
 
-const MAX_RETRIES = 3;
+const MAX_ATTEMPTS = 4;
 const RETRY_DELAYS = [1000, 2000, 4000];
 
 @Injectable()
@@ -23,16 +23,12 @@ export class ProcessorService {
   ) {}
 
   async process(data: CardRequestedData, source: string): Promise<void> {
-    let attempt = 0;
+    let lastError = '';
 
-    while (attempt <= MAX_RETRIES) {
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
       try {
         this.logger.log(
-          {
-            requestId: data.requestId,
-            attempt: attempt + 1,
-            maxAttempts: MAX_RETRIES + 1,
-          },
+          { requestId: data.requestId, attempt, maxAttempts: MAX_ATTEMPTS },
           'Iniciando procesamiento',
         );
 
@@ -44,24 +40,21 @@ export class ProcessorService {
           ...card,
           requestId: data.requestId,
         });
-
         await this.repository.updateStatus(data.requestId, 'issued');
-
-        const issuedData: CardIssuedData = {
-          requestId: data.requestId,
-          customer: data.customer,
-          card: {
-            cardId: card.cardId,
-            cardNumber: card.cardNumber,
-            expiresAt: card.expiresAt,
-            cvv: card.cvv,
-          },
-        };
 
         await this.kafkaProducer.publish<CardIssuedData>(TOPICS.CARD_ISSUED, {
           source,
           type: TOPICS.CARD_ISSUED,
-          data: issuedData,
+          data: {
+            requestId: data.requestId,
+            customer: data.customer,
+            card: {
+              cardId: card.cardId,
+              cardNumber: card.cardNumber,
+              expiresAt: card.expiresAt,
+              cvv: card.cvv,
+            },
+          },
         });
 
         this.logger.log(
@@ -74,54 +67,49 @@ export class ProcessorService {
 
         return;
       } catch (error) {
-        attempt++;
+        lastError = error instanceof Error ? error.message : String(error);
 
-        const errorMessage =
-          error instanceof Error ? error.message : String(error);
-
-        if (attempt <= MAX_RETRIES) {
+        if (attempt < MAX_ATTEMPTS) {
           const delay = RETRY_DELAYS[attempt - 1];
-
           this.logger.warn(
             {
               requestId: data.requestId,
               attempt,
-              maxRetries: MAX_RETRIES,
+              remainingAttempts: MAX_ATTEMPTS - attempt,
               nextRetryMs: delay,
-              reason: errorMessage,
+              reason: lastError,
             },
             'Fallo en procesamiento, reintentando',
           );
-
           await new Promise((r) => setTimeout(r, delay));
-        } else {
-          await this.repository.updateStatus(data.requestId, 'failed');
-
-          const dlqData: CardDLQData = {
-            requestId: data.requestId,
-            error: {
-              message: errorMessage,
-              attempts: attempt,
-            },
-            originalPayload: data,
-          };
-
-          await this.kafkaProducer.publish<CardDLQData>(TOPICS.CARD_DLQ, {
-            source,
-            type: TOPICS.CARD_DLQ,
-            data: dlqData,
-          });
-
-          this.logger.error(
-            {
-              requestId: data.requestId,
-              totalAttempts: attempt,
-              reason: errorMessage,
-            },
-            'Reintentos agotados, enviado a DLQ',
-          );
         }
       }
     }
+
+    await this.repository.updateStatus(data.requestId, 'failed');
+
+    const dlqData: CardDLQData = {
+      requestId: data.requestId,
+      error: {
+        message: lastError,
+        attempts: MAX_ATTEMPTS,
+      },
+      originalPayload: data,
+    };
+
+    await this.kafkaProducer.publish<CardDLQData>(TOPICS.CARD_DLQ, {
+      source,
+      type: TOPICS.CARD_DLQ,
+      data: dlqData,
+    });
+
+    this.logger.error(
+      {
+        requestId: data.requestId,
+        totalAttempts: MAX_ATTEMPTS,
+        reason: lastError,
+      },
+      'Reintentos agotados, enviado a DLQ',
+    );
   }
 }

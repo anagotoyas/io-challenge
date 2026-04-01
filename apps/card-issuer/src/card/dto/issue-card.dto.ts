@@ -62,7 +62,11 @@ export class IssueCardDto {
   @Type(() => ProductDto)
   product: ProductDto;
 
-  @ApiProperty({ example: false, required: false })
+  @ApiProperty({
+    example: false,
+    required: false,
+    description: 'Solo para entornos de prueba. Ignorado en producción.',
+  })
   @IsBoolean()
   @IsOptional()
   forceError?: boolean;

@@ -4,7 +4,7 @@ function generateCardNumber(): string {
   const groups = Array.from({ length: 4 }, () =>
     Math.floor(Math.random() * 9000 + 1000),
   );
-  return `4${groups[0].toString().slice(1)} ${groups[1]} ${groups[2]} ${groups[3]}`;
+  return `4${groups[0].toString().slice(1)}${groups[1]}${groups[2]}${groups[3]}`;
 }
 
 function generateCvv(): string {
@@ -15,7 +15,8 @@ function generateExpiresAt(): string {
   const date = new Date();
   date.setFullYear(date.getFullYear() + 4);
   const month = String(date.getMonth() + 1).padStart(2, '0');
-  return `${month}/${date.getFullYear()}`;
+  const year = String(date.getFullYear()).slice(-2);
+  return `${month}/${year}`;
 }
 
 export function generateCardData() {
