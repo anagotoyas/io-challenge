@@ -1,10 +1,8 @@
 import { Module } from '@nestjs/common';
-import { CardIssuerController } from './card-issuer.controller';
-import { CardIssuerService } from './card-issuer.service';
+import { ConfigModule } from '@nestjs/config';
+import { CardModule } from './card/card.module';
 
 @Module({
-  imports: [],
-  controllers: [CardIssuerController],
-  providers: [CardIssuerService],
+  imports: [ConfigModule.forRoot({ isGlobal: true }), CardModule],
 })
 export class CardIssuerModule {}
