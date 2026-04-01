@@ -10,12 +10,17 @@ import { IssueCardDto } from './dto/issue-card.dto';
 import { CardRequestedEvent } from './events/card-requested.event';
 import { IssueCardResponse } from './responses/issue-card.response';
 import { CardStatusResponse } from './responses/card-status.response';
+import { KafkaProducer } from '../kafka/kafka.producer';
+import { CardRequestedData, TOPICS } from '@app/shared';
 
 @Injectable()
 export class CardService {
   private readonly logger = new Logger(CardService.name);
 
-  constructor(private readonly cardRepository: CardRepository) {}
+  constructor(
+    private readonly cardRepository: CardRepository,
+    private readonly kafkaProducer: KafkaProducer,
+  ) {}
 
   async issueCard(dto: IssueCardDto): Promise<IssueCardResponse> {
     const { documentNumber } = dto.customer;
@@ -37,14 +42,17 @@ export class CardService {
 
     await this.cardRepository.create(requestId, dto);
 
+    await this.kafkaProducer.publish<CardRequestedData>(TOPICS.CARD_REQUESTED, {
+      source: requestId,
+      type: TOPICS.CARD_REQUESTED,
+      data: eventData,
+    });
+
     this.logger.log('Solicitud de tarjeta registrada', {
       requestId,
       documentNumber: `****${documentNumber.slice(-4)}`,
       currency: dto.product.currency,
     });
-
-    // TODO: publicar eventData en Kafka (io.card.requested.v1)
-    void eventData;
 
     return { requestId, status: 'pending' };
   }
