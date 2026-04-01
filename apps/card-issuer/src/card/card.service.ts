@@ -10,8 +10,8 @@ import { IssueCardDto } from './dto/issue-card.dto';
 import { CardRequestedEvent } from './events/card-requested.event';
 import { IssueCardResponse } from './responses/issue-card.response';
 import { CardStatusResponse } from './responses/card-status.response';
-import { KafkaProducer } from '../kafka/kafka.producer';
-import { CardRequestedData, TOPICS } from '@app/shared';
+
+import { CardRequestedData, KafkaProducer, TOPICS } from '@app/shared';
 
 @Injectable()
 export class CardService {

@@ -24,7 +24,6 @@ export class CardRepository {
         email: dto.customer.email,
         cardType: dto.product.type,
         currency: dto.product.currency,
-        status: 'pending',
       },
     });
   }

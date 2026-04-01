@@ -1,5 +1,7 @@
 export * from './shared.module';
 export * from './prisma/prisma.service';
+export * from './kafka/kafka.module';
+export * from './kafka/kafka.producer';
 export * from './constants/topics';
 export * from './types/event-type.types';
 export * from './types/card-requested.types';

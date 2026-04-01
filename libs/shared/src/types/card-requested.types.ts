@@ -15,6 +15,5 @@ export interface CardRequestedData {
   requestId: string;
   customer: CustomerData;
   product: ProductData;
-  status: 'pending';
   forceError: boolean;
 }

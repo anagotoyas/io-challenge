@@ -16,7 +16,6 @@ export class CardRequestedEvent {
         type: dto.product.type,
         currency: dto.product.currency,
       },
-      status: 'pending',
       forceError: dto.forceError ?? false,
     };
   }

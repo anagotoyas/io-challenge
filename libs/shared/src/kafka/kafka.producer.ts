@@ -1,4 +1,5 @@
 import {
+  Inject,
   Injectable,
   Logger,
   OnModuleDestroy,
@@ -6,7 +7,10 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Kafka, Producer } from 'kafkajs';
-import { CloudEvent } from '@app/shared';
+import { CloudEvent } from '../types/cloud-event.types';
+import { EventType } from '../types/event-type.types';
+
+export const KAFKA_CLIENT_ID = 'KAFKA_CLIENT_ID';
 
 @Injectable()
 export class KafkaProducer implements OnModuleInit, OnModuleDestroy {
@@ -14,17 +18,20 @@ export class KafkaProducer implements OnModuleInit, OnModuleDestroy {
   private producer: Producer;
   private eventCounter = 0;
 
-  constructor(private readonly config: ConfigService) {
+  constructor(
+    private readonly config: ConfigService,
+    @Inject(KAFKA_CLIENT_ID) private readonly clientId: string,
+  ) {
     const kafka = new Kafka({
-      clientId: 'card-issuer',
-      brokers: [this.config.get<string>('KAFKA_BROKER') || 'localhost:9092'],
+      clientId,
+      brokers: [this.config.getOrThrow<string>('KAFKA_BROKER')],
     });
     this.producer = kafka.producer();
   }
 
   async onModuleInit() {
     await this.producer.connect();
-    this.logger.log('Kafka producer conectado');
+    this.logger.log('Kafka producer conectado', { clientId: this.clientId });
   }
 
   async onModuleDestroy() {
@@ -33,7 +40,7 @@ export class KafkaProducer implements OnModuleInit, OnModuleDestroy {
 
   async publish<T>(
     topic: string,
-    event: Omit<CloudEvent<T>, 'id' | 'time'>,
+    event: Omit<CloudEvent<T>, 'id' | 'time'> & { type: EventType },
   ): Promise<void> {
     const fullEvent: CloudEvent<T> = {
       ...event,
@@ -46,10 +53,11 @@ export class KafkaProducer implements OnModuleInit, OnModuleDestroy {
       messages: [{ value: JSON.stringify(fullEvent) }],
     });
 
-    this.logger.log('Evento publicado en Kafka', {
+    this.logger.log('Evento publicado', {
       topic,
       type: fullEvent.type,
       id: fullEvent.id,
+      source: fullEvent.source,
     });
   }
 }

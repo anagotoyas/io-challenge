@@ -9,5 +9,4 @@ export interface CardIssuedData {
     expiresAt: string;
     cvv: string;
   };
-  status: 'issued';
 }

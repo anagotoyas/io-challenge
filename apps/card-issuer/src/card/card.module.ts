@@ -2,11 +2,10 @@ import { Module } from '@nestjs/common';
 import { CardController } from './card.controller';
 import { CardService } from './card.service';
 import { CardRepository } from './card.repository';
-import { SharedModule } from '@app/shared';
-import { KafkaModule } from '../kafka/kafka.module';
+import { KafkaModule, SharedModule } from '@app/shared';
 
 @Module({
-  imports: [SharedModule, KafkaModule],
+  imports: [SharedModule, KafkaModule.forRoot('card-issuer')],
   controllers: [CardController],
   providers: [CardService, CardRepository],
 })
