@@ -44,15 +44,21 @@ export class CardService {
     const eventData = CardRequestedEvent.from(requestId, dto);
 
     try {
-      await this.kafkaProducer.publish<CardRequestedData>(TOPICS.CARD_REQUESTED, {
-        source: requestId,
-        type: TOPICS.CARD_REQUESTED,
-        data: eventData,
-      });
+      await this.kafkaProducer.publish<CardRequestedData>(
+        TOPICS.CARD_REQUESTED,
+        {
+          source: requestId,
+          type: TOPICS.CARD_REQUESTED,
+          data: eventData,
+        },
+      );
     } catch (error) {
       await this.cardRepository.delete(requestId);
       this.logger.error(
-        { requestId, reason: error instanceof Error ? error.message : String(error) },
+        {
+          requestId,
+          reason: error instanceof Error ? error.message : String(error),
+        },
         'Fallo al publicar evento en Kafka, solicitud revertida',
       );
       throw new InternalServerErrorException(

@@ -19,7 +19,7 @@ export class CardController {
   constructor(private readonly cardService: CardService) {}
 
   @Post('issue')
-  @HttpCode(201)
+  @HttpCode(202)
   @ApiOperation({ summary: 'Solicitar emisión de tarjeta' })
   @ApiCreatedResponse({
     description: 'Solicitud registrada exitosamente',

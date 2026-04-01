@@ -116,7 +116,7 @@ io-card-issuer/
 
 ```bash
 git clone <url-del-repositorio>
-cd io-card-issuer
+cd io-challenge
 npm install
 ```
 
@@ -223,7 +223,7 @@ Solicita la emisión de una tarjeta para un nuevo cliente.
 | `currency`       | `"PEN"` o `"USD"`                                                            |
 | `forceError`     | Opcional. Fuerza fallo en el processor para pruebas. Ignorado en producción. |
 
-**Respuesta — `201 Created`:**
+**Respuesta — `202 Accepted`:**
 
 ```json
 {
@@ -234,7 +234,7 @@ Solicita la emisión de una tarjeta para un nuevo cliente.
 
 | Código | Motivo                                  |
 | ------ | --------------------------------------- |
-| `201`  | Solicitud registrada                    |
+| `202`  | Solicitud registrada                    |
 | `400`  | Payload inválido                        |
 | `409`  | El cliente ya tiene una tarjeta         |
 | `500`  | Error interno (ej. Kafka no disponible) |
