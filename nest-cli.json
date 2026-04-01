@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json.schemastore.org/nest-cli",
+  "collection": "@nestjs/schematics",
+  "monorepo": true,
+  "root": "apps/card-issuer",
+  "sourceRoot": "apps/card-issuer/src",
+  "compilerOptions": {
+    "deleteOutDir": true,
+    "webpack": true
+  },
+  "projects": {
+    "card-issuer": {
+      "type": "application",
+      "root": "apps/card-issuer",
+      "entryFile": "main",
+      "sourceRoot": "apps/card-issuer/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/card-issuer/tsconfig.app.json"
+      }
+    },
+    "card-processor": {
+      "type": "application",
+      "root": "apps/card-processor",
+      "entryFile": "main",
+      "sourceRoot": "apps/card-processor/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/card-processor/tsconfig.app.json"
+      }
+    },
+    "shared": {
+      "type": "library",
+      "root": "libs/shared",
+      "entryFile": "index",
+      "sourceRoot": "libs/shared/src",
+      "compilerOptions": {
+        "tsConfigPath": "libs/shared/tsconfig.lib.json"
+      }
+    }
+  }
+}
