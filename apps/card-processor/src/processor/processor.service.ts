@@ -27,11 +27,14 @@ export class ProcessorService {
 
     while (attempt <= MAX_RETRIES) {
       try {
-        this.logger.log('Iniciando procesamiento', {
-          requestId: data.requestId,
-          attempt: attempt + 1,
-          maxAttempts: MAX_RETRIES + 1,
-        });
+        this.logger.log(
+          {
+            requestId: data.requestId,
+            attempt: attempt + 1,
+            maxAttempts: MAX_RETRIES + 1,
+          },
+          'Iniciando procesamiento',
+        );
 
         await simulateExternalCall(data.forceError);
 
@@ -61,10 +64,13 @@ export class ProcessorService {
           data: issuedData,
         });
 
-        this.logger.log('Tarjeta emitida exitosamente', {
-          requestId: data.requestId,
-          cardNumber: `**** **** **** ${card.cardNumber.slice(-4)}`,
-        });
+        this.logger.log(
+          {
+            requestId: data.requestId,
+            cardNumber: `**** **** **** ${card.cardNumber.slice(-4)}`,
+          },
+          'Tarjeta emitida exitosamente',
+        );
 
         return;
       } catch (error) {
@@ -76,13 +82,16 @@ export class ProcessorService {
         if (attempt <= MAX_RETRIES) {
           const delay = RETRY_DELAYS[attempt - 1];
 
-          this.logger.warn('Fallo en procesamiento, reintentando', {
-            requestId: data.requestId,
-            attempt,
-            maxRetries: MAX_RETRIES,
-            nextRetryMs: delay,
-            reason: errorMessage,
-          });
+          this.logger.warn(
+            {
+              requestId: data.requestId,
+              attempt,
+              maxRetries: MAX_RETRIES,
+              nextRetryMs: delay,
+              reason: errorMessage,
+            },
+            'Fallo en procesamiento, reintentando',
+          );
 
           await new Promise((r) => setTimeout(r, delay));
         } else {
@@ -103,11 +112,14 @@ export class ProcessorService {
             data: dlqData,
           });
 
-          this.logger.error('Reintentos agotados, enviado a DLQ', {
-            requestId: data.requestId,
-            totalAttempts: attempt,
-            reason: errorMessage,
-          });
+          this.logger.error(
+            {
+              requestId: data.requestId,
+              totalAttempts: attempt,
+              reason: errorMessage,
+            },
+            'Reintentos agotados, enviado a DLQ',
+          );
         }
       }
     }

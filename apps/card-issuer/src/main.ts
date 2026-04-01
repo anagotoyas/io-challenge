@@ -2,10 +2,12 @@ import { NestFactory } from '@nestjs/core';
 import { CardIssuerModule } from './card-issuer.module';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { Logger } from 'nestjs-pino';
 import helmet from 'helmet';
 
 async function bootstrap() {
-  const app = await NestFactory.create(CardIssuerModule);
+  const app = await NestFactory.create(CardIssuerModule, { bufferLogs: true });
+  app.useLogger(app.get(Logger));
 
   app.use(helmet());
   app.setGlobalPrefix('api');

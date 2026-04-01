@@ -31,7 +31,7 @@ export class KafkaProducer implements OnModuleInit, OnModuleDestroy {
 
   async onModuleInit() {
     await this.producer.connect();
-    this.logger.log('Kafka producer conectado', { clientId: this.clientId });
+    this.logger.log({ clientId: this.clientId }, 'Kafka producer conectado');
   }
 
   async onModuleDestroy() {
@@ -53,11 +53,9 @@ export class KafkaProducer implements OnModuleInit, OnModuleDestroy {
       messages: [{ value: JSON.stringify(fullEvent) }],
     });
 
-    this.logger.log('Evento publicado', {
-      topic,
-      type: fullEvent.type,
-      id: fullEvent.id,
-      source: fullEvent.source,
-    });
+    this.logger.log(
+      { topic, type: fullEvent.type, id: fullEvent.id, source: fullEvent.source },
+      'Evento publicado',
+    );
   }
 }

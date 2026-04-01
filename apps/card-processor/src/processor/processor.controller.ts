@@ -14,20 +14,18 @@ export class ProcessorController {
     try {
       const event = this.parseMessage<CardRequestedData>(message);
 
-      this.logger.log('Evento recibido', {
-        id: event.id,
-        type: event.type,
-        requestId: event.data.requestId,
-        source: event.source,
-      });
+      this.logger.log(
+        { id: event.id, type: event.type, requestId: event.data.requestId, source: event.source },
+        'Evento recibido',
+      );
 
       await this.processorService.process(event.data, event.source);
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
-      this.logger.error('Error inesperado en consumer', {
-        error: err.message,
-        stack: err.stack,
-      });
+      this.logger.error(
+        { error: err.message, stack: err.stack },
+        'Error inesperado en consumer',
+      );
     }
   }
 

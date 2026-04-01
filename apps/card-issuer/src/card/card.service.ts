@@ -29,9 +29,10 @@ export class CardService {
       await this.cardRepository.existsByDocumentNumber(documentNumber);
 
     if (exists) {
-      this.logger.warn('Solicitud rechazada: cliente ya tiene tarjeta', {
-        documentNumber: `****${documentNumber.slice(-4)}`,
-      });
+      this.logger.warn(
+        { documentNumber: `****${documentNumber.slice(-4)}` },
+        'Solicitud rechazada: cliente ya tiene tarjeta',
+      );
       throw new ConflictException(
         'El cliente ya tiene una tarjeta en proceso o emitida',
       );
@@ -48,11 +49,14 @@ export class CardService {
       data: eventData,
     });
 
-    this.logger.log('Solicitud de tarjeta registrada', {
-      requestId,
-      documentNumber: `****${documentNumber.slice(-4)}`,
-      currency: dto.product.currency,
-    });
+    this.logger.log(
+      {
+        requestId,
+        documentNumber: `****${documentNumber.slice(-4)}`,
+        currency: dto.product.currency,
+      },
+      'Solicitud de tarjeta registrada',
+    );
 
     return { requestId, status: 'pending' };
   }
