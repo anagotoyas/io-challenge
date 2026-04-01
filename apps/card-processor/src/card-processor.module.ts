@@ -1,10 +1,8 @@
 import { Module } from '@nestjs/common';
-import { CardProcessorController } from './card-processor.controller';
-import { CardProcessorService } from './card-processor.service';
+import { ConfigModule } from '@nestjs/config';
+import { ProcessorModule } from './processor/processor.module';
 
 @Module({
-  imports: [],
-  controllers: [CardProcessorController],
-  providers: [CardProcessorService],
+  imports: [ConfigModule.forRoot({ isGlobal: true }), ProcessorModule],
 })
 export class CardProcessorModule {}
