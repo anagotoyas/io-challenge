@@ -54,7 +54,12 @@ export class KafkaProducer implements OnModuleInit, OnModuleDestroy {
     });
 
     this.logger.log(
-      { topic, type: fullEvent.type, id: fullEvent.id, source: fullEvent.source },
+      {
+        topic,
+        type: fullEvent.type,
+        id: fullEvent.id,
+        source: fullEvent.source,
+      },
       'Evento publicado',
     );
   }

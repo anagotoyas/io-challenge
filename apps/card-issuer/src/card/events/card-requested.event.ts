@@ -16,7 +16,8 @@ export class CardRequestedEvent {
         type: dto.product.type,
         currency: dto.product.currency,
       },
-      forceError: process.env.NODE_ENV !== 'production' && (dto.forceError ?? false),
+      forceError:
+        process.env.NODE_ENV !== 'production' && (dto.forceError ?? false),
     };
   }
 }

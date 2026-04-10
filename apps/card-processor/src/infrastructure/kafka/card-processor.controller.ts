@@ -1,25 +1,30 @@
 import { Controller, Logger } from '@nestjs/common';
 import { EventPattern, Payload } from '@nestjs/microservices';
 import { CloudEvent, CardRequestedData, TOPICS } from '@app/shared';
-import { ProcessorService } from './processor.service';
+import { IssueCardUseCase } from '../../application/use-cases/issue-card.use-case';
 
 @Controller()
-export class ProcessorController {
-  private readonly logger = new Logger(ProcessorController.name);
+export class CardProcessorController {
+  private readonly logger = new Logger(CardProcessorController.name);
 
-  constructor(private readonly processorService: ProcessorService) {}
+  constructor(private readonly issueCardUseCase: IssueCardUseCase) {}
 
   @EventPattern(TOPICS.CARD_REQUESTED)
-  async handleCardRequested(@Payload() message: unknown) {
+  async handleCardRequested(@Payload() message: unknown): Promise<void> {
     try {
       const event = this.parseMessage<CardRequestedData>(message);
 
       this.logger.log(
-        { id: event.id, type: event.type, requestId: event.data.requestId, source: event.source },
+        {
+          id: event.id,
+          type: event.type,
+          requestId: event.data.requestId,
+          source: event.source,
+        },
         'Evento recibido',
       );
 
-      await this.processorService.process(event.data, event.source);
+      await this.issueCardUseCase.execute(event.data, event.source);
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
       this.logger.error(
