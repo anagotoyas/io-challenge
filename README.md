@@ -23,7 +23,7 @@ Sistema de emisión de tarjetas para el neobanco IO, implementado con arquitectu
                                 ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                   card-processor (Consumer)                     │
-│  - Consume evento de Kafka                                      │
+│  - Idempotencia: descarta eventos ya procesados                 │
 │  - Simula servicio externo (200–500ms, ~60% éxito)              │
 │  - Retry con backoff: 1s → 2s → 4s (máx 3 reintentos = 4 total)│
 │  - Éxito → genera tarjeta, actualiza DB, publica card.issued    │
@@ -43,14 +43,12 @@ card-issuer                         card-processor
     │                                     │
     │─── io.card.requested.v1 ───────────▶│
     │    source: "uuid-abc"               │── intento 1: falla
-    │    id: 1                            │── espera 1s
-    │                                     │── intento 2: falla
-    │                                     │── espera 2s
-    │                                     │── intento 3: éxito
+    │    key:    "uuid-abc"               │── espera 1s
+    │                                     │── intento 2: éxito
     │                                     │
     │                                     │─── io.cards.issued.v1
-    │                                     │    source: "uuid-abc" (mismo)
-    │                                     │    id: 1
+    │                                     │    source: "uuid-abc"
+    │                                     │    key:    "uuid-abc"
 ```
 
 ---
@@ -62,27 +60,34 @@ io-card-issuer/
 ├── apps/
 │   ├── card-issuer/               # REST API — solicitud de tarjetas
 │   │   └── src/
-│   │       ├── card/
-│   │       │   ├── dto/           # Validación del payload HTTP
-│   │       │   ├── events/        # Construcción de CloudEvents
-│   │       │   ├── responses/     # Tipado de respuestas HTTP
-│   │       │   ├── card.controller.ts
-│   │       │   ├── card.service.ts
-│   │       │   ├── card.repository.ts
-│   │       │   └── card.module.ts
+│   │       ├── domain/
+│   │       │   ├── entities/      # CardRequest
+│   │       │   ├── value-objects/ # RequestId
+│   │       │   └── ports/         # ICardRequestRepository, IEventPublisher, ILogger
+│   │       ├── application/
+│   │       │   └── use-cases/     # RequestCardUseCase
+│   │       ├── infrastructure/
+│   │       │   ├── http/          # CardController, DTOs, responses
+│   │       │   ├── messaging/     # KafkaEventPublisher
+│   │       │   ├── persistence/   # PrismaCardRequestRepository
+│   │       │   └── injection-tokens.ts
 │   │       ├── health/            # Health check con verificación de DB
 │   │       └── main.ts
 │   │
 │   └── card-processor/            # Kafka Consumer — emisión de tarjetas
 │       └── src/
-│           ├── processor/
-│           │   ├── utils/
-│           │   │   ├── card-generator.ts          # Genera datos de tarjeta
-│           │   │   └── external-service.simulator.ts  # Simula fallo/éxito
-│           │   ├── processor.controller.ts        # @EventPattern Kafka
-│           │   ├── processor.service.ts           # Retry + DLQ logic
-│           │   ├── processor.repository.ts
-│           │   └── processor.module.ts
+│           ├── domain/
+│           │   ├── entities/      # Card
+│           │   ├── value-objects/ # CardNumber, Cvv, ExpiresAt, DocumentNumber
+│           │   └── ports/         # ICardRepository, IEventPublisher, ICardIssuer,
+│           │                      # IProcessedEventRepository, ILogger
+│           ├── application/
+│           │   └── use-cases/     # IssueCardUseCase
+│           ├── infrastructure/
+│           │   ├── kafka/         # CardProcessorController (@EventPattern)
+│           │   ├── messaging/     # KafkaEventPublisher, ExternalCardIssuerAdapter
+│           │   ├── persistence/   # PrismaCardRepository, PrismaProcessedEventRepository
+│           │   └── injection-tokens.ts
 │           └── main.ts
 │
 ├── libs/
@@ -91,7 +96,7 @@ io-card-issuer/
 │           ├── constants/         # Topics de Kafka
 │           ├── types/             # CloudEvent, CardRequested, CardIssued, CardDLQ
 │           ├── kafka/             # KafkaProducer reutilizable (DynamicModule)
-│           ├── logger/            # LoggerModule con Pino estructurado
+│           ├── logger/            # LoggerModule (Pino), LoggerPort, NestJsLoggerAdapter
 │           └── prisma/            # PrismaService con driver adapter
 │
 ├── prisma/
@@ -132,7 +137,6 @@ El `.env` por defecto ya tiene los valores correctos para el entorno local con D
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/io_cards
 KAFKA_BROKER=localhost:9092
 ISSUER_PORT=3000
-PROCESSOR_PORT=3001
 NODE_ENV=development
 ```
 
@@ -168,6 +172,30 @@ npm run start:dev card-issuer
 # Terminal 2 — Kafka Consumer
 npm run start:dev card-processor
 ```
+
+---
+
+## Tests
+
+```bash
+# todos los tests
+npm test
+
+# con coverage
+npm run test:cov
+
+# en modo watch
+npm run test:watch
+```
+
+Los tests cubren la lógica crítica sin dependencias de infraestructura:
+
+| Suite                           | Qué prueba                                            |
+| ------------------------------- | ----------------------------------------------------- |
+| `issue-card.use-case.spec.ts`   | Idempotencia, happy path, retry y DLQ                 |
+| `request-card.use-case.spec.ts` | Happy path, duplicado de cliente, rollback de Kafka   |
+| `card-number.vo.spec.ts`        | Formato Visa (16 dígitos, prefijo 4), enmascaramiento |
+| `expires-at.vo.spec.ts`         | Formato MM/YY, fecha 4 años en el futuro              |
 
 ---
 
@@ -396,6 +424,7 @@ INFO: Solicitud de tarjeta registrada {"requestId":"uuid","documentNumber":"****
 INFO: Evento recibido {"id":1,"type":"io.card.requested.v1","requestId":"uuid"}
 INFO: Iniciando procesamiento {"requestId":"uuid","attempt":1,"maxAttempts":4}
 WARN: Fallo en procesamiento, reintentando {"attempt":1,"remainingAttempts":2,"nextRetryMs":1000}
+WARN: Evento duplicado, ignorando {"eventId":"1","requestId":"uuid"}
 INFO: Tarjeta emitida exitosamente {"requestId":"uuid","cardNumber":"**** **** **** 9283"}
 ERROR: Reintentos agotados, enviado a DLQ {"requestId":"uuid","totalAttempts":4}
 ```
@@ -406,21 +435,35 @@ Nivel configurable con `LOG_LEVEL` en `.env` (`trace`, `debug`, `info`, `warn`, 
 
 ## Decisiones técnicas
 
+### Arquitectura hexagonal
+
+Ambos servicios siguen arquitectura hexagonal con tres capas estrictas:
+
+- **Domain** — entidades, value objects e interfaces de puertos. Sin dependencias de NestJS, Kafka ni Prisma.
+- **Application** — use-cases orquestan el flujo usando solo los puertos del dominio. Clases TypeScript puras (sin `@Injectable`), instanciadas vía `useFactory` en el módulo.
+- **Infrastructure** — adaptadores que implementan los puertos: Prisma, Kafka, NestJS Logger. Aquí viven los decoradores y dependencias de framework.
+
+### Idempotencia en card-processor
+
+Cada evento procesado exitosamente se registra en la tabla `processed_events`. Ante un redelivery de Kafka, el use-case detecta el `eventId` duplicado y retorna sin procesar. El registro del `eventId` y la lógica de negocio ocurren dentro de la misma transacción de PostgreSQL — si alguna operación falla, el `eventId` no queda marcado y el reintento lo procesa normalmente.
+
+### Producer Kafka con garantías de entrega
+
+- `idempotent: true` — el broker descarta mensajes duplicados si el producer reintenta por timeout de red.
+- `acks: -1` — confirmación solo cuando leader y todas las ISR han escrito el mensaje.
+- `key: requestId` — misma solicitud siempre va a la misma partición, garantizando orden de eventos.
+
 ### Unicidad de tarjeta — constraint en DB, no en aplicación
 
-La unicidad se resuelve en la capa de base de datos (`@unique` en `documentNumber`) atrapando el error `P2002` de Prisma.
-
-### Kafka KRaft en lugar de Zookeeper
-
-KRaft (desde Kafka 3.x) permite que Kafka gestione su propia coordinación interna sin un proceso externo. Simplifica la infraestructura y es el estándar actual (Zookeeper deprecado desde Kafka 3.5).
-
-### Retry in-process con backoff exponencial
-
-El backoff se implementa en memoria dentro del consumer (1s → 2s → 4s, 4 intentos totales). Evita la necesidad de topics de retry adicionales, manteniendo la infraestructura simple sin sacrificar la confiabilidad para este caso de uso.
+La unicidad se resuelve en la capa de base de datos (`@unique` en `documentNumber`) atrapando el error `P2002` de Prisma. Evita race conditions que existirían si la verificación fuera a nivel de aplicación.
 
 ### Rollback ante fallo de Kafka en card-issuer
 
 Si el `INSERT` en PostgreSQL es exitoso pero la publicación en Kafka falla, el registro se elimina y se retorna `500`. Esto garantiza consistencia: o el flujo completo se inicia, o no queda rastro huérfano en la DB.
+
+### Retry in-process con backoff exponencial
+
+El backoff se implementa en memoria dentro del consumer (1s → 2s → 4s, 4 intentos totales). Evita la necesidad de topics de retry adicionales, manteniendo la infraestructura simple sin sacrificar la confiabilidad para este caso de uso.
 
 ### `forceError` bloqueado en producción
 
@@ -444,6 +487,7 @@ El flag `forceError` se ignora automáticamente en `NODE_ENV=production`, evitan
 | PostgreSQL         | 16      | Base de datos                |
 | Kafka KRaft        | 7.8     | Broker de mensajes           |
 | Pino / nestjs-pino | 4.x     | Logs estructurados JSON      |
+| Jest               | 30.x    | Tests unitarios              |
 | Helmet             | 8.x     | Cabeceras de seguridad HTTP  |
 | class-validator    | 0.14    | Validación de DTOs           |
 | Swagger / OpenAPI  | 11.x    | Documentación de API         |
