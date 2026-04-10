@@ -1,9 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { LoggerPort } from '../../domain/ports/logger.port';
+import { LoggerPort } from './logger.port';
+
+export const LOGGER_PORT = Symbol('LoggerPort');
 
 @Injectable()
 export class NestJsLoggerAdapter implements LoggerPort {
-  private readonly logger = new Logger('RequestCardUseCase');
+  private readonly logger = new Logger('UseCase');
 
   log(context: Record<string, unknown>, message: string): void {
     this.logger.log(context, message);

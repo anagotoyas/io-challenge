@@ -1,19 +1,9 @@
-import { CardRequestedData } from '@app/shared';
+import { CardRequestedData, LoggerPort } from '@app/shared';
 import { CardRequest } from '../../domain/entities/card-request.entity';
 import { CardRequestRepositoryPort } from '../../domain/ports/card-request.repository.port';
 import { EventPublisherPort } from '../../domain/ports/event-publisher.port';
-import { LoggerPort } from '../../domain/ports/logger.port';
 
-export interface RequestCardInput {
-  documentType: string;
-  documentNumber: string;
-  fullName: string;
-  age: number;
-  email: string;
-  cardType: string;
-  currency: string;
-  forceError: boolean;
-}
+export type RequestCardInput = Omit<CardRequestedData, 'requestId'>;
 
 export interface RequestCardOutput {
   requestId: string;
@@ -34,18 +24,13 @@ export class RequestCardUseCase {
     try {
       await this.cardRequestRepository.create({
         requestId,
-        documentType: input.documentType,
-        documentNumber: input.documentNumber,
-        fullName: input.fullName,
-        age: input.age,
-        email: input.email,
-        cardType: input.cardType,
-        currency: input.currency,
+        customer: input.customer,
+        product: input.product,
       });
     } catch (error) {
       if (this.cardRequestRepository.isUniqueConstraintError(error)) {
         this.logger.warn(
-          { documentNumber: `****${input.documentNumber.slice(-4)}` },
+          { documentNumber: `****${input.customer.documentNumber.slice(-4)}` },
           'Solicitud rechazada: cliente ya tiene tarjeta',
         );
         throw new DuplicateCardRequestError(
@@ -55,21 +40,7 @@ export class RequestCardUseCase {
       throw error;
     }
 
-    const eventData: CardRequestedData = {
-      requestId,
-      customer: {
-        documentType: input.documentType,
-        documentNumber: input.documentNumber,
-        fullName: input.fullName,
-        age: input.age,
-        email: input.email,
-      },
-      product: {
-        type: input.cardType,
-        currency: input.currency,
-      },
-      forceError: input.forceError,
-    };
+    const eventData: CardRequestedData = { requestId, ...input };
 
     try {
       await this.eventPublisher.publishCardRequested(eventData, requestId);
@@ -90,8 +61,8 @@ export class RequestCardUseCase {
     this.logger.log(
       {
         requestId,
-        documentNumber: `****${input.documentNumber.slice(-4)}`,
-        currency: input.currency,
+        documentNumber: `****${input.customer.documentNumber.slice(-4)}`,
+        currency: input.product.currency,
       },
       'Solicitud de tarjeta registrada',
     );

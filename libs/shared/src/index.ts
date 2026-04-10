@@ -1,5 +1,7 @@
 export * from './shared.module';
 export * from './logger/logger.module';
+export * from './logger/logger.port';
+export * from './logger/logger.adapter';
 export * from './prisma/prisma.service';
 export * from './kafka/kafka.module';
 export * from './kafka/kafka.producer';

@@ -19,7 +19,18 @@ export class PrismaCardRequestRepository implements CardRequestRepositoryPort {
   }
 
   async create(data: CreateCardRequestData): Promise<void> {
-    await this.prisma.cardRequest.create({ data });
+    await this.prisma.cardRequest.create({
+      data: {
+        requestId: data.requestId,
+        documentType: data.customer.documentType,
+        documentNumber: data.customer.documentNumber,
+        fullName: data.customer.fullName,
+        age: data.customer.age,
+        email: data.customer.email,
+        cardType: data.product.type,
+        currency: data.product.currency,
+      },
+    });
   }
 
   async delete(requestId: string): Promise<void> {

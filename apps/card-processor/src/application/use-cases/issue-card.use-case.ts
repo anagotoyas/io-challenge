@@ -1,9 +1,13 @@
-import { CardRequestedData, CardIssuedData, CardDLQData } from '@app/shared';
+import {
+  CardRequestedData,
+  CardIssuedData,
+  CardDLQData,
+  LoggerPort,
+} from '@app/shared';
 import { Card } from '../../domain/entities/card.entity';
 import { CardRepositoryPort } from '../../domain/ports/card.repository.port';
 import { EventPublisherPort } from '../../domain/ports/event-publisher.port';
 import { CardIssuerPort } from '../../domain/ports/card-issuer.port';
-import { LoggerPort } from '../../domain/ports/logger.port';
 
 const MAX_ATTEMPTS = 4;
 const RETRY_DELAYS = [1000, 2000, 4000] as const;

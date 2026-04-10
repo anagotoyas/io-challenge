@@ -1,3 +1,5 @@
+import { CustomerData, ProductData } from '@app/shared';
+
 export type CardStatus = 'pending' | 'issued' | 'failed';
 
 export interface IssuedCardDetail {
@@ -13,13 +15,8 @@ export interface CardRequestRecord {
 
 export interface CreateCardRequestData {
   requestId: string;
-  documentType: string;
-  documentNumber: string;
-  fullName: string;
-  age: number;
-  email: string;
-  cardType: string;
-  currency: string;
+  customer: CustomerData;
+  product: ProductData;
 }
 
 export interface CardRequestRepositoryPort {

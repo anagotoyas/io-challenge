@@ -4,6 +4,7 @@ import {
   ConflictException,
   Get,
   HttpCode,
+  Inject,
   InternalServerErrorException,
   NotFoundException,
   Param,
@@ -29,7 +30,6 @@ import { CardRequestRepositoryPort } from '../../domain/ports/card-request.repos
 import { IssueCardDto } from './dto/issue-card.dto';
 import { IssueCardResponse } from './responses/issue-card.response';
 import { CardStatusResponse } from './responses/card-status.response';
-import { Inject } from '@nestjs/common';
 import { CARD_REQUEST_REPOSITORY_PORT } from '../injection-tokens';
 
 @ApiTags('cards')
@@ -54,13 +54,17 @@ export class CardController {
   async issueCard(@Body() dto: IssueCardDto): Promise<IssueCardResponse> {
     try {
       return await this.requestCardUseCase.execute({
-        documentType: dto.customer.documentType,
-        documentNumber: dto.customer.documentNumber,
-        fullName: dto.customer.fullName,
-        age: dto.customer.age,
-        email: dto.customer.email,
-        cardType: dto.product.type,
-        currency: dto.product.currency,
+        customer: {
+          documentType: dto.customer.documentType,
+          documentNumber: dto.customer.documentNumber,
+          fullName: dto.customer.fullName,
+          age: dto.customer.age,
+          email: dto.customer.email,
+        },
+        product: {
+          type: dto.product.type,
+          currency: dto.product.currency,
+        },
         forceError:
           process.env.NODE_ENV !== 'production' && (dto.forceError ?? false),
       });
