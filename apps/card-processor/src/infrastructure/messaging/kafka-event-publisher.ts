@@ -15,6 +15,7 @@ export class KafkaEventPublisher implements EventPublisherPort {
     await this.kafkaProducer.publish<CardIssuedData>(TOPICS.CARD_ISSUED, {
       source,
       type: TOPICS.CARD_ISSUED,
+      key: data.requestId,
       data,
     });
   }
@@ -23,6 +24,7 @@ export class KafkaEventPublisher implements EventPublisherPort {
     await this.kafkaProducer.publish<CardDLQData>(TOPICS.CARD_DLQ, {
       source,
       type: TOPICS.CARD_DLQ,
+      key: data.requestId,
       data,
     });
   }

@@ -8,6 +8,7 @@ import { Card } from '../../domain/entities/card.entity';
 import { CardRepositoryPort } from '../../domain/ports/card.repository.port';
 import { EventPublisherPort } from '../../domain/ports/event-publisher.port';
 import { CardIssuerPort } from '../../domain/ports/card-issuer.port';
+import { ProcessedEventRepositoryPort } from '../../domain/ports/processed-event.repository.port';
 
 const MAX_ATTEMPTS = 4;
 const RETRY_DELAYS = [1000, 2000, 4000] as const;
@@ -18,9 +19,24 @@ export class IssueCardUseCase {
     private readonly eventPublisher: EventPublisherPort,
     private readonly cardIssuer: CardIssuerPort,
     private readonly logger: LoggerPort,
+    private readonly processedEventRepository: ProcessedEventRepositoryPort,
   ) {}
 
-  async execute(data: CardRequestedData, source: string): Promise<void> {
+  async execute(
+    eventId: string,
+    data: CardRequestedData,
+    source: string,
+  ): Promise<void> {
+    // Idempotencia: si el evento ya fue procesado exitosamente, lo ignoramos.
+    // Esto protege contra redeliveries de Kafka (at-least-once delivery).
+    if (await this.processedEventRepository.exists(eventId)) {
+      this.logger.warn(
+        { eventId, requestId: data.requestId },
+        'Evento duplicado, ignorando',
+      );
+      return;
+    }
+
     let lastError = '';
 
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
@@ -35,9 +51,6 @@ export class IssueCardUseCase {
         const card = Card.create(data.requestId);
         const primitives = card.toPrimitives();
 
-        await this.cardRepository.saveIssuedCard(primitives);
-        await this.cardRepository.updateStatus(data.requestId, 'issued');
-
         const issuedData: CardIssuedData = {
           requestId: data.requestId,
           customer: data.customer,
@@ -48,6 +61,17 @@ export class IssueCardUseCase {
             cvv: primitives.cvv,
           },
         };
+
+        // Guarda el eventId + toda la lógica de negocio en una sola transacción.
+        // Si cualquier operación falla, el eventId no queda marcado
+        // → el reintento de Kafka procesará el evento normalmente.
+        await this.processedEventRepository.saveWithTransaction(
+          eventId,
+          async () => {
+            await this.cardRepository.saveIssuedCard(primitives);
+            await this.cardRepository.updateStatus(data.requestId, 'issued');
+          },
+        );
 
         await this.eventPublisher.publishCardIssued(issuedData, source);
 

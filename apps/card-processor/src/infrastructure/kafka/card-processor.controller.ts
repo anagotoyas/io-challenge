@@ -24,7 +24,11 @@ export class CardProcessorController {
         'Evento recibido',
       );
 
-      await this.issueCardUseCase.execute(event.data, event.source);
+      await this.issueCardUseCase.execute(
+        String(event.id),
+        event.data,
+        event.source,
+      );
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
       this.logger.error(

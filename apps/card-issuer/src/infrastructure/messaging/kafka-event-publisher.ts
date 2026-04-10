@@ -13,6 +13,7 @@ export class KafkaEventPublisher implements EventPublisherPort {
     await this.kafkaProducer.publish<CardRequestedData>(TOPICS.CARD_REQUESTED, {
       source,
       type: TOPICS.CARD_REQUESTED,
+      key: data.requestId,
       data,
     });
   }

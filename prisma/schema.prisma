@@ -30,6 +30,13 @@ model CardRequest {
   @@map("card_requests")
 }
 
+model ProcessedEvent {
+  eventId     String   @id @map("event_id")
+  processedAt DateTime @default(now()) @map("processed_at")
+
+  @@map("processed_events")
+}
+
 model IssuedCard {
   cardId     String   @id @default(uuid()) @map("card_id")
   requestId  String   @unique @map("request_id")

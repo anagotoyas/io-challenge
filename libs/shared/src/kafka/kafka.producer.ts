@@ -26,7 +26,17 @@ export class KafkaProducer implements OnModuleInit, OnModuleDestroy {
       clientId,
       brokers: [this.config.getOrThrow<string>('KAFKA_BROKER')],
     });
-    this.producer = kafka.producer();
+
+    this.producer = kafka.producer({
+      // Evita duplicados cuando el producer reintenta por timeout de red:
+      // el broker reconoce mensajes ya recibidos usando el sequence number
+      // y los descarta sin procesarlos dos veces.
+      idempotent: true,
+
+      // Requerido por idempotent=true: solo una request en vuelo a la vez
+      // por broker, garantizando el orden de los sequence numbers.
+      maxInFlightRequests: 1,
+    });
   }
 
   async onModuleInit() {
@@ -40,7 +50,7 @@ export class KafkaProducer implements OnModuleInit, OnModuleDestroy {
 
   async publish<T>(
     topic: string,
-    event: Omit<CloudEvent<T>, 'id' | 'time'> & { type: EventType },
+    event: Omit<CloudEvent<T>, 'id' | 'time'> & { type: EventType; key?: string },
   ): Promise<void> {
     const fullEvent: CloudEvent<T> = {
       ...event,
@@ -50,7 +60,18 @@ export class KafkaProducer implements OnModuleInit, OnModuleDestroy {
 
     await this.producer.send({
       topic,
-      messages: [{ value: JSON.stringify(fullEvent) }],
+      messages: [
+        {
+          // Misma solicitud siempre va a la misma partición: garantiza orden
+          // de eventos (CARD_REQUESTED → CARD_ISSUED) para un mismo requestId.
+          key: event.key ?? null,
+          value: JSON.stringify(fullEvent),
+        },
+      ],
+      // El mensaje se confirma solo cuando el leader y todos los ISR
+      // (in-sync replicas) lo han escrito. Evita pérdida de mensajes
+      // si el leader falla justo después de confirmar.
+      acks: -1,
     });
 
     this.logger.log(
@@ -59,6 +80,7 @@ export class KafkaProducer implements OnModuleInit, OnModuleDestroy {
         type: fullEvent.type,
         id: fullEvent.id,
         source: fullEvent.source,
+        key: event.key,
       },
       'Evento publicado',
     );
